@@ -49,11 +49,13 @@ class PastecConnection:
         return json.loads(ret)
 
     def indexImageFile(self, imageId, filePath):
-        self.indexImageData(imageId, self.loadFileData(filePath))
+        return self.indexImageData(imageId, self.loadFileData(filePath))
 
     def indexImageData(self, imageId, imageData):
         ret = self.request("index/images/" + str(imageId), "PUT", imageData)
         self.raiseExceptionIfNeeded(ret["type"])
+        return {"image_id" : ret["image_id"],
+                "nb_features_extracted" : ret["nb_features_extracted"]}
 
     def removeImage(self, imageId):
         ret = self.request("index/images/" + str(imageId), "DELETE")
@@ -74,13 +76,18 @@ class PastecConnection:
         ret = self.request("index/io", "POST", bytearray(s, "UTF-8"))
         self.raiseExceptionIfNeeded(ret["type"])
 
+    def getIndexImageIds(self):
+        ret = self.request("index/imageIds", "GET")
+        self.raiseExceptionIfNeeded(ret["type"])
+        imageIds = ret["image_ids"]
+        return imageIds
+
     def imageQueryFile(self, filePath):
         return self.imageQueryData(self.loadFileData(filePath))
 
     def imageQueryData(self, imageData):
         ret = self.request("index/searcher", "POST", imageData)
         self.raiseExceptionIfNeeded(ret["type"])
-        print(ret)
         imageIds = ret["image_ids"]
         return imageIds
 

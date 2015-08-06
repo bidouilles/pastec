@@ -113,6 +113,7 @@ void RequestHandler::handleRequest(ConnectionInfo &conInfo)
     string p_image[] = {"index", "images", "IDENTIFIER", ""};
     string p_searchImage[] = {"index", "searcher", ""};
     string p_ioIndex[] = {"index", "io", ""};
+    string p_imageIds[] = {"index", "imageIds", ""};
     string p_root[] = {""};
 
     Json::Value ret;
@@ -123,11 +124,14 @@ void RequestHandler::handleRequest(ConnectionInfo &conInfo)
     {
         u_int32_t i_imageId = atoi(parsedURI[2].c_str());
 
+        unsigned i_nbFeaturesExtracted;
         u_int32_t i_ret = featureExtractor->processNewImage(
-            i_imageId, conInfo.uploadedData.size(), conInfo.uploadedData.data());
+            i_imageId, conInfo.uploadedData.size(), conInfo.uploadedData.data(),
+            i_nbFeaturesExtracted);
 
         ret["type"] = Converter::codeToString(i_ret);
         ret["image_id"] = Json::Value(i_imageId);
+        ret["nb_features_extracted"] = Json::Value(i_nbFeaturesExtracted);
     }
     else if (testURIWithPattern(parsedURI, p_image)
              && conInfo.connectionType == DELETE)
@@ -171,6 +175,12 @@ void RequestHandler::handleRequest(ConnectionInfo &conInfo)
                 boundingRects.append(rVal);
             }
             ret["bounding_rects"] = boundingRects;
+
+            // Return the scores
+            Json::Value scores(Json::arrayValue);
+            for (unsigned i = 0; i < req.scores.size(); ++i)
+                scores.append(req.scores[i]);
+            ret["scores"] = scores;
         }
     }
     else if (testURIWithPattern(parsedURI, p_ioIndex)
@@ -191,6 +201,20 @@ void RequestHandler::handleRequest(ConnectionInfo &conInfo)
             i_ret = MISFORMATTED_REQUEST;
 
         ret["type"] = Converter::codeToString(i_ret);
+    }
+    else if (testURIWithPattern(parsedURI, p_imageIds)
+             && conInfo.connectionType == GET)
+    {
+        vector<u_int32_t> imageIds;
+        u_int32_t i_ret = index->getImageIds(imageIds);
+
+        ret["type"] = Converter::codeToString(i_ret);
+
+        // Return the image ids
+        Json::Value imageIdsVal(Json::arrayValue);
+        for (unsigned i = 0; i < imageIds.size(); ++i)
+            imageIdsVal.append(imageIds[i]);
+        ret["image_ids"] = imageIdsVal;
     }
     else if (testURIWithPattern(parsedURI, p_root)
              && conInfo.connectionType == POST)
@@ -227,7 +251,7 @@ void RequestHandler::handleRequest(ConnectionInfo &conInfo)
  */
 string RequestHandler::JsonToString(Json::Value data)
 {
-    Json::StyledWriter writer;
+    Json::FastWriter writer;
     return writer.write(data);
 }
 
